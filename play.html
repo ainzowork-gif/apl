@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>APL Playground — Ainzo Programming Language</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gaegu:wght@300;400;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --board:#26382f;
+    --chalk:#eef0e2;
+    --chalk-dim:#bfc4b2;
+    --chalk-faint:#8d9583;
+    --yellow:#f2e2a0;
+    --pink:#e8a9a2;
+    --blue:#a8c8d8;
+    --green-chalk:#bcd6a8;
+    --display:"Caveat", cursive;
+    --hand:"Gaegu", cursive;
+    --body:"Patrick Hand", cursive;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html, body{ height:100%; overflow:hidden; }
+
+  body{
+    font-family:var(--body);
+    color:var(--chalk);
+    background-color:var(--board);
+    background-image:url("assets/chalkboard-grain.png");
+    background-size:512px 512px;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---- board lighting ---- */
+  .board-light{
+    position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:
+      radial-gradient(60% 45% at 22% 18%, rgba(255,255,255,.05), transparent 60%),
+      radial-gradient(55% 40% at 80% 72%, rgba(255,255,255,.045), transparent 60%),
+      radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.28) 100%);
+    mix-blend-mode:screen;
+  }
+  .board-light::after{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(120% 120% at 50% 45%, transparent 58%, rgba(0,0,0,.35) 100%);
+    mix-blend-mode:multiply;
+  }
+
+  /* ---- wooden frame ---- */
+  .frame{ position:fixed; inset:0; pointer-events:none; z-index:60; }
+  .frame > div{ position:absolute;
+    box-shadow:inset 0 0 14px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.4); }
+  .frame .t{ top:0; left:0; right:0; height:16px; background:repeating-linear-gradient(0deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(#6a4527,#4d3019); }
+  .frame .b{ bottom:0; left:0; right:0; height:16px; background:repeating-linear-gradient(0deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(#6a4527,#4d3019); }
+  .frame .l{ top:0; bottom:0; left:0; width:16px; background:repeating-linear-gradient(90deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(90deg,#6a4527,#4d3019); }
+  .frame .r{ top:0; bottom:0; right:0; width:16px; background:repeating-linear-gradient(90deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(90deg,#6a4527,#4d3019); }
+
+  /* ---- chalk text ---- */
+  .chalk{ text-shadow:0 0 1px rgba(238,240,226,.45), 0 0 2px rgba(238,240,226,.18); }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:relative; z-index:3;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 36px 14px;
+    border-bottom:1px dashed rgba(191,196,178,.25);
+    flex-shrink:0;
+  }
+  .brand{
+    font-family:var(--display); font-weight:700; font-size:28px;
+    color:var(--chalk); text-decoration:none;
+    text-shadow:0 0 1px rgba(238,240,226,.45);
+    display:flex; align-items:center; gap:8px;
+  }
+  .brand svg{ width:24px; height:24px; }
+  .brand .dot{ color:var(--pink); }
+  .topbar-right{ display:flex; align-items:center; gap:20px; }
+  .top-hint{
+    font-family:var(--hand); font-size:16px; color:var(--chalk-faint);
+  }
+  .back-link{
+    font-family:var(--hand); font-size:18px; color:var(--chalk-dim);
+    text-decoration:none; transition:color .2s;
+    display:flex; align-items:center; gap:6px;
+  }
+  .back-link:hover{ color:var(--yellow); }
+
+  /* ---------- layout ---------- */
+  .editor-shell{
+    position:relative; z-index:2;
+    flex:1; display:flex; gap:0;
+    overflow:hidden;
+    margin:16px 24px 20px;
+  }
+
+  /* ---- panel ---- */
+  .pane{
+    flex:1; display:flex; flex-direction:column;
+    border:2px dashed rgba(191,196,178,.4);
+    border-radius:14px 10px 12px 10px;
+    padding:16px 18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .pane + .pane{ margin-left:16px; }
+  .pane-label{
+    font-family:var(--hand); font-size:16px; color:var(--chalk-faint);
+    letter-spacing:.5px; margin-bottom:12px; flex-shrink:0;
+    display:flex; align-items:center; gap:8px;
+  }
+  .pane-label .dot-ind{
+    width:7px; height:7px; border-radius:50%; display:inline-block;
+  }
+  .dot-blue{ background:var(--blue); box-shadow:0 0 5px rgba(168,200,216,.5); }
+  .dot-green{ background:var(--green-chalk); box-shadow:0 0 5px rgba(188,214,168,.5); }
+
+  /* ---- code textarea ---- */
+  #code-input{
+    flex:1; width:100%; background:transparent; border:none; outline:none;
+    font-family:var(--hand); font-size:20px; color:var(--chalk);
+    line-height:1.9; resize:none; caret-color:var(--yellow);
+    text-shadow:0 0 1px rgba(238,240,226,.4), 0 0 2px rgba(238,240,226,.15);
+    tab-size:2; overflow-y:auto;
+  }
+  #code-input::placeholder{ color:rgba(141,149,131,.4); }
+
+  /* custom scrollbar */
+  #code-input::-webkit-scrollbar,
+  #output::-webkit-scrollbar{ width:4px; }
+  #code-input::-webkit-scrollbar-track,
+  #output::-webkit-scrollbar-track{ background:transparent; }
+  #code-input::-webkit-scrollbar-thumb,
+  #output::-webkit-scrollbar-thumb{ background:rgba(191,196,178,.3); border-radius:2px; }
+
+  /* ---- output ---- */
+  #output{
+    flex:1; overflow-y:auto;
+    font-family:var(--hand); font-size:20px; color:var(--green-chalk);
+    line-height:1.9; white-space:pre-wrap; word-break:break-word;
+    text-shadow:0 0 3px rgba(188,214,168,.2);
+  }
+  #output.empty{ color:var(--chalk-faint); font-style:italic; }
+
+  /* ---------- bottom toolbar ---------- */
+  .toolbar{
+    position:relative; z-index:3;
+    display:flex; align-items:center; gap:14px;
+    padding:0 24px 20px;
+    flex-shrink:0;
+  }
+
+  /* ---- buttons ---- */
+  .btn{
+    position:relative; font-family:var(--hand); font-weight:700; font-size:22px;
+    cursor:pointer; color:var(--chalk); background:transparent; border:none;
+    padding:12px 30px; display:inline-flex; align-items:center; justify-content:center;
+    transition:transform .18s ease, color .18s ease;
+  }
+  .btn .box{
+    position:absolute; inset:0; border:2.5px solid var(--chalk);
+    border-radius:14px 10px 13px 9px; filter:url(#rough);
+    transition:background .18s ease, border-color .18s ease;
+    pointer-events:none;
+  }
+  .btn-label{ position:relative; z-index:2; }
+
+  .btn.primary{ color:var(--board); transform:rotate(-1deg); }
+  .btn.primary .box{ border-color:var(--yellow); background:var(--yellow); }
+  .btn.primary:hover{ transform:rotate(-1deg) translateY(-2px) scale(1.03); }
+
+  .btn.ghost{ transform:rotate(.6deg); }
+  .btn.ghost:hover{ color:var(--yellow); transform:rotate(.6deg) translateY(-2px); }
+  .btn.ghost:hover .box{ border-color:var(--yellow); background:rgba(242,226,160,.08); }
+
+  .toolbar-hint{
+    font-family:var(--hand); font-size:16px;
+    color:var(--chalk-faint); margin-left:auto;
+  }
+
+  /* ---------- chalk dust ---------- */
+  .dust{ position:fixed; inset:0; pointer-events:none; z-index:55; overflow:hidden; }
+  .mote{ position:absolute; top:-12px; border-radius:50%;
+         background:rgba(238,240,226,.5); animation:fall linear infinite; }
+  @keyframes fall{
+    0%{ transform:translateY(-12px) translateX(0); opacity:0; }
+    10%{ opacity:.6; } 90%{ opacity:.4; }
+    100%{ transform:translateY(105vh) translateX(30px); opacity:0; }
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width:720px){
+    .editor-shell{ flex-direction:column; }
+    .pane + .pane{ margin-left:0; margin-top:12px; }
+    .topbar{ padding:16px 20px 12px; }
+    .top-hint{ display:none; }
+    body{ overflow:auto; }
+    html{ overflow:auto; }
+  }
+  @media (max-width:520px){
+    .editor-shell{ margin:10px 12px 14px; }
+    .toolbar{ padding:0 12px 14px; }
+    #code-input, #output{ font-size:17px; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .mote{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.022" numOctaves="3" seed="7" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </defs>
+</svg>
+
+<div class="board-light"></div>
+<div class="dust" id="dust"></div>
+<div class="frame"><div class="t"></div><div class="b"></div><div class="l"></div><div class="r"></div></div>
+
+<!-- ---- top bar ---- -->
+<div class="topbar">
+  <a href="index.html" class="brand chalk">
+    <svg viewBox="0 0 32 32" fill="none" stroke="#f2e2a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 24 L13 6 L19 22 M24 9 L27 26" />
+      <path d="M3 28 Q16 25 29 28" stroke="#eef0e2" stroke-width="2" />
+    </svg>
+    APL<span class="dot">.</span>
+  </a>
+  <div class="topbar-right">
+    <span class="top-hint">Ctrl+Enter to run</span>
+    <a href="index.html" class="back-link">← Back</a>
+    <a href="https://github.com/ainzowork-gif/apl" target="_blank" class="back-link" title="GitHub">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.742 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+      </svg>
+      GitHub
+    </a>
+  </div>
+</div>
+
+<!-- ---- editor + output ---- -->
+<div class="editor-shell">
+  <!-- code pane -->
+  <div class="pane">
+    <div class="pane-label">
+      <span class="dot-ind dot-blue"></span>
+      code
+    </div>
+    <textarea id="code-input" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
+      placeholder="v int x = 1
+Loop x < 6 {
+n v x = x + 1
+print x
+}"></textarea>
+  </div>
+
+  <!-- output pane -->
+  <div class="pane">
+    <div class="pane-label">
+      <span class="dot-ind dot-green"></span>
+      output
+    </div>
+    <pre id="output" class="empty">run your code to see output here...</pre>
+  </div>
+</div>
+
+<!-- ---- toolbar ---- -->
+<div class="toolbar">
+  <button id="run-btn" class="btn primary">
+    <span class="box"></span>
+    <span class="btn-label">▶ Run</span>
+  </button>
+  <button id="clear-btn" class="btn ghost">
+    <span class="box"></span>
+    <span class="btn-label">Clear</span>
+  </button>
+  <span class="toolbar-hint">Ctrl + Enter to run</span>
+</div>
+
+<!-- interpreter -->
+<script defer src="web_ide.js"></script>
+
+<script>
+  /* ---- chalk dust ---- */
+  (function(){
+    var dust = document.getElementById('dust');
+    for(var i=0;i<12;i++){
+      var m = document.createElement('div');
+      m.className = 'mote';
+      m.style.left = Math.random()*100+'vw';
+      var dur = 10+Math.random()*14;
+      m.style.animationDuration = dur+'s';
+      m.style.animationDelay = (-Math.random()*dur)+'s';
+      var s = 2+Math.random()*2;
+      m.style.width = s+'px'; m.style.height = s+'px';
+      m.style.opacity = 0.25+Math.random()*0.35;
+      dust.appendChild(m);
+    }
+  })();
+
+  /* ---- Ctrl+Enter to run ---- */
+  document.addEventListener('keydown', function(e){
+    if(e.ctrlKey && e.key === 'Enter'){
+      document.getElementById('run-btn').click();
+    }
+  });
+
+  /* ---- remove "empty" style when output arrives ---- */
+  var outEl = document.getElementById('output');
+  var observer = new MutationObserver(function(){
+    outEl.classList.toggle('empty', outEl.textContent.trim() === '');
+  });
+  observer.observe(outEl, { childList:true, characterData:true, subtree:true });
+</script>
+</body>
+</html>
