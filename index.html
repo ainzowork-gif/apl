@@ -1,217 +1,593 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>APL — Ainzo Programming Language</title>
-  <script defer src="web_ide.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>APL — Ainzo Programming Language</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gaegu:wght@300;400;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --board:#26382f;
+    --chalk:#eef0e2;
+    --chalk-dim:#bfc4b2;
+    --chalk-faint:#8d9583;
+    --yellow:#f2e2a0;
+    --pink:#e8a9a2;
+    --blue:#a8c8d8;
+    --green-chalk:#bcd6a8;
+    --display:"Caveat", cursive;
+    --hand:"Gaegu", cursive;
+    --body:"Patrick Hand", cursive;
+  }
 
-    body {
-      background: #0d1117;
-      color: #c9d1d9;
-      font-family: 'Segoe UI', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
 
-    header {
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-      padding: 16px 32px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+  body{
+    font-family:var(--body);
+    color:var(--chalk);
+    background-color:var(--board);
+    background-image:url("assets/chalkboard-grain.png");
+    background-size:512px 512px;
+    line-height:1.5;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
 
-    header h1 {
-      font-size: 1.3rem;
-      color: #58a6ff;
-      font-weight: 700;
-      letter-spacing: 1px;
-    }
+  /* ---- board lighting ---- */
+  .board-light{
+    position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:
+      radial-gradient(60% 45% at 22% 18%, rgba(255,255,255,.05), transparent 60%),
+      radial-gradient(55% 40% at 80% 72%, rgba(255,255,255,.045), transparent 60%),
+      radial-gradient(40% 30% at 60% 40%, rgba(220,230,210,.035), transparent 60%),
+      radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.32) 100%);
+    mix-blend-mode:screen;
+  }
+  .board-light::after{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(120% 120% at 50% 45%, transparent 58%, rgba(0,0,0,.40) 100%);
+    mix-blend-mode:multiply;
+  }
 
-    header span {
-      background: #238636;
-      color: #fff;
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 600;
-    }
+  /* ---- wooden frame ---- */
+  .frame{ position:fixed; inset:0; pointer-events:none; z-index:60; }
+  .frame > div{ position:absolute; background:
+      repeating-linear-gradient(90deg, #5b3b22 0 6px, #6a4527 6px 11px, #553620 11px 15px),
+      linear-gradient(#6a4527,#4d3019);
+    box-shadow:inset 0 0 14px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.4);
+  }
+  .frame .t{ top:0; left:0; right:0; height:16px; background-image:repeating-linear-gradient(0deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(#6a4527,#4d3019); }
+  .frame .b{ bottom:0; left:0; right:0; height:16px; }
+  .frame .l{ top:0; bottom:0; left:0; width:16px; background-image:repeating-linear-gradient(90deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(90deg,#6a4527,#4d3019); }
+  .frame .r{ top:0; bottom:0; right:0; width:16px; background-image:repeating-linear-gradient(90deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(90deg,#6a4527,#4d3019); }
 
-    .editor-area {
-      display: flex;
-      flex: 1;
-      gap: 0;
-      height: calc(100vh - 60px);
-    }
+  /* ---- chalk text ---- */
+  .chalk{ text-shadow:0 0 1px rgba(238,240,226,.45), 0 0 2px rgba(238,240,226,.18); }
+  .rough{ filter:url(#rough); }
+  .rough-soft{ filter:url(#rough-soft); }
 
-    .left-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid #30363d;
-    }
+  /* ---------- layout ---------- */
+  .wrap{ position:relative; z-index:2; max-width:1120px; margin:0 auto; padding:0 36px; }
+  section{ position:relative; z-index:2; }
 
-    .panel-header {
-      background: #161b22;
-      padding: 10px 16px;
-      font-size: 0.75rem;
-      color: #8b949e;
-      border-bottom: 1px solid #30363d;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+  /* ---------- nav ---------- */
+  nav{ position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between;
+       max-width:1120px; margin:0 auto; padding:26px 36px 0; }
+  .brand{ font-family:var(--display); font-weight:700; font-size:34px; letter-spacing:.5px; display:flex; align-items:center; gap:10px; }
+  .brand .mark{ width:30px; height:30px; }
+  .nav-links{ display:flex; gap:26px; align-items:center; }
+  .nav-links a{ color:var(--chalk-dim); text-decoration:none; font-family:var(--hand); font-size:20px; padding-bottom:2px; transition:color .2s; }
+  .nav-links a:hover{ color:var(--yellow); }
+  .nav-links a.line{ position:relative; }
+  .nav-links a.line::after{ content:""; position:absolute; left:0; right:0; bottom:-3px; height:6px;
+      background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='6'%3E%3Cpath d='M1 4 Q20 1 40 4 T79 3' stroke='%23f2e2a0' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+      opacity:0; transition:opacity .2s; }
+  .nav-links a.line:hover::after{ opacity:1; }
 
-    .panel-header .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #58a6ff;
-      display: inline-block;
-      margin-right: 6px;
-    }
+  /* ---------- hero ---------- */
+  .hero{ text-align:center; padding:70px 0 40px; }
+  .kicker{ font-family:var(--hand); font-size:22px; color:var(--yellow); letter-spacing:2px; text-transform:uppercase; }
+  .hero h1{ font-family:var(--display); font-weight:700; font-size:clamp(86px,17vw,210px); line-height:.9;
+            margin:6px 0 4px; letter-spacing:1px; }
+  .hero h1 .dot{ color:var(--pink); }
+  .tagline{ font-family:var(--hand); font-weight:300; font-size:clamp(22px,3.4vw,34px); color:var(--chalk-dim);
+            max-width:620px; margin:8px auto 0; }
+  .tagline b{ color:var(--chalk); font-weight:700; }
 
-    #code-input {
-      flex: 1;
-      background: #0d1117;
-      color: #c9d1d9;
-      border: none;
-      outline: none;
-      padding: 20px;
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 15px;
-      line-height: 1.7;
-      resize: none;
-      tab-size: 2;
-    }
+  .btn-row{ display:flex; gap:22px; justify-content:center; flex-wrap:wrap; margin-top:38px; }
+  .btn{ position:relative; font-family:var(--hand); font-weight:700; font-size:24px; cursor:pointer;
+        color:var(--chalk); background:transparent; border:none; padding:16px 34px; text-decoration:none;
+        display:inline-block; transition:transform .18s ease, color .18s ease; }
+  .btn .box{ position:absolute; inset:0; border:2.5px solid var(--chalk); border-radius:14px 10px 13px 9px;
+             filter:url(#rough); transition:background .18s ease, border-color .18s ease; }
+  .btn.primary{ color:var(--board); transform:rotate(-1.2deg); }
+  .btn.primary .box{ border-color:var(--yellow); background:var(--yellow); }
+  .btn.primary:hover{ transform:rotate(-1.2deg) translateY(-3px) scale(1.03); }
+  .btn.ghost{ transform:rotate(.8deg); }
+  .btn.ghost:hover{ color:var(--yellow); transform:rotate(.8deg) translateY(-3px) scale(1.03); }
+  .btn.ghost:hover .box{ border-color:var(--yellow); background:rgba(242,226,160,.08); }
 
-    #code-input::placeholder {
-      color: #3d444d;
-    }
+  /* ---------- animated code preview (demo) ---------- */
+  .code-wrap{ margin:64px auto 30px; max-width:680px; }
+  .code-board{ position:relative; padding:30px 30px 34px; }
+  .code-board .panel{ position:absolute; inset:0; border:2.5px dashed var(--chalk-dim); border-radius:16px 12px 15px 11px;
+                      filter:url(#rough-soft); opacity:.85; }
+  .code-board .tag{ position:absolute; top:-15px; left:28px; background:var(--board); padding:0 12px;
+                    font-family:var(--hand); font-size:19px; color:var(--yellow); white-space:nowrap; }
+  .code{ font-family:var(--hand); font-size:clamp(22px,3.2vw,30px); line-height:1.7; position:relative; min-height:118px; }
+  .code .prompt{ color:var(--blue); }
+  .code .kw{ color:var(--yellow); }
+  .code .num{ color:var(--pink); }
+  .code .answer{ color:var(--green-chalk); font-weight:700; }
+  .code .var{ color:var(--chalk-dim); }
+  .cursor{ display:inline-block; width:11px; height:0.92em; vertical-align:-3px; margin-left:3px;
+           background:var(--chalk); border-radius:2px; box-shadow:0 0 6px rgba(238,240,226,.5); }
+  .ci{ display:inline-block; animation:chalkPop .2s ease; }
+  @keyframes chalkPop{ from{ filter:blur(1.3px); transform:translateY(1px) scale(.94); } to{ filter:none; transform:none; } }
+  .cursor.blink{ animation:blink 1s steps(1) infinite; }
+  @keyframes blink{ 0%,50%{ opacity:1; } 51%,100%{ opacity:0; } }
 
-    .right-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
+  /* ---------- section heading ---------- */
+  .sec-head{ text-align:center; margin:0 auto 12px; }
+  .sec-head h2{ font-family:var(--display); font-weight:700; font-size:clamp(52px,7vw,82px); line-height:1; display:inline-block; }
+  .underline-svg{ display:block; margin:2px auto 0; width:min(340px,70%); height:22px; }
+  .underline-svg path{ stroke:var(--yellow); stroke-width:3; fill:none; stroke-linecap:round;
+                       stroke-dasharray:600; stroke-dashoffset:600; }
+  .in .underline-svg path{ animation:draw 1s ease forwards; }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+  .sec-sub{ text-align:center; font-family:var(--hand); font-size:22px; color:var(--chalk-faint); margin-top:14px; }
 
-    #output {
-      flex: 1;
-      background: #0d1117;
-      color: #3fb950;
-      padding: 20px;
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 15px;
-      line-height: 1.7;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      min-height: 0;
-    }
+  /* ---------- features ---------- */
+  .features{ padding:90px 0 30px; }
+  .feature-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:26px; margin-top:60px; }
+  .feature{ position:relative; padding:34px 22px 30px; text-align:center; }
+  .feature .card{ position:absolute; inset:0; border:2.5px solid var(--chalk-dim); border-radius:18px 12px 16px 14px;
+                  filter:url(#rough); opacity:.7; }
+  .feature:nth-child(1){ transform:rotate(-1.4deg); }
+  .feature:nth-child(2){ transform:rotate(1deg); }
+  .feature:nth-child(3){ transform:rotate(-.6deg); }
+  .feature:nth-child(4){ transform:rotate(1.6deg); }
+  .feature .ic{ width:74px; height:74px; margin:0 auto 14px; display:block; }
+  .feature .ic path, .feature .ic line, .feature .ic circle, .feature .ic polyline{
+      fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:url(#rough); }
+  .feature h3{ font-family:var(--hand); font-weight:700; font-size:25px; margin-bottom:6px; }
+  .feature p{ font-family:var(--body); font-size:18.5px; color:var(--chalk-dim); }
 
-    .toolbar {
-      background: #161b22;
-      border-top: 1px solid #30363d;
-      padding: 12px 20px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+  /* ---------- how it works ---------- */
+  .how{ padding:100px 0 40px; }
+  .flow{ display:flex; align-items:center; justify-content:center; gap:4px; margin-top:64px; flex-wrap:nowrap; }
+  .node{ position:relative; padding:24px 20px; text-align:center; min-width:120px; flex:0 1 auto; }
+  .node .box2{ position:absolute; inset:0; border:2.5px solid var(--chalk); border-radius:16px 11px 14px 12px; filter:url(#rough); }
+  .node .nh{ font-family:var(--hand); font-weight:700; font-size:25px; white-space:nowrap; }
+  .node .ns{ font-family:var(--body); font-size:16px; color:var(--chalk-faint); margin-top:2px; }
+  .node:nth-child(1){ transform:rotate(-1deg); }
+  .node:nth-child(3){ transform:rotate(1deg); }
+  .node:nth-child(5){ transform:rotate(-1.2deg); }
+  .node:nth-child(7){ transform:rotate(.8deg); }
+  .node.code-node .box2{ border-style:dashed; border-color:var(--blue); }
+  .node.out-node .box2{ border-color:var(--green-chalk); }
+  .arrow{ width:62px; height:46px; flex:0 0 auto; }
+  .arrow path{ stroke:var(--yellow); stroke-width:3; fill:none; stroke-linecap:round; stroke-linejoin:round;
+               filter:url(#rough); stroke-dasharray:160; stroke-dashoffset:160; }
+  .in .arrow path{ animation:draw 0.8s ease forwards; }
+  .in .arrow:nth-of-type(2) path{ animation-delay:.25s; }
+  .in .arrow:nth-of-type(3) path{ animation-delay:.5s; }
 
-    button {
-      padding: 8px 20px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: opacity 0.2s;
-    }
+  /* ---------- interactive playground ---------- */
+  .playground{ padding:90px 0 40px; }
+  .ide-board{ position:relative; margin-top:52px; padding:28px 28px 76px; }
+  .ide-panel{ position:absolute; inset:0; border:2.5px dashed var(--chalk-dim);
+              border-radius:16px 12px 15px 11px; filter:url(#rough-soft); opacity:.85; }
+  .ide-tag{ position:absolute; top:-15px; left:28px; background:var(--board); padding:0 12px;
+            font-family:var(--hand); font-size:19px; color:var(--yellow); white-space:nowrap; }
+  .ide-layout{ display:grid; grid-template-columns:1fr 1px 1fr; gap:0; min-height:240px; }
+  .ide-divider{ background:rgba(191,196,178,.25); margin:0 20px; border-radius:2px; }
+  .ide-col{ display:flex; flex-direction:column; }
+  .ide-col-label{ font-family:var(--hand); font-size:17px; color:var(--chalk-faint);
+                  margin-bottom:10px; letter-spacing:.5px; }
+  #code-input{
+    flex:1; width:100%; background:transparent; border:none; outline:none;
+    font-family:var(--hand); font-size:clamp(17px,2vw,22px); color:var(--chalk);
+    resize:none; line-height:1.8; caret-color:var(--yellow);
+    text-shadow:0 0 1px rgba(238,240,226,.45), 0 0 2px rgba(238,240,226,.18);
+    tab-size:2; min-height:200px;
+  }
+  #code-input::placeholder{ color:rgba(141,149,131,.5); }
+  #output{
+    flex:1; color:var(--green-chalk); font-family:var(--hand);
+    font-size:clamp(17px,2vw,22px); line-height:1.8; min-height:80px;
+    white-space:pre-wrap; word-wrap:break-word;
+    text-shadow:0 0 3px rgba(188,214,168,.25);
+  }
+  .ide-toolbar{
+    position:absolute; bottom:18px; left:28px; right:28px;
+    display:flex; gap:14px; align-items:center;
+  }
+  .ide-btn{ font-size:20px !important; padding:10px 26px !important; }
+  .ide-hint{ font-family:var(--hand); font-size:17px; color:var(--chalk-faint); margin-left:auto; }
 
-    button:hover { opacity: 0.85; }
+  /* ---- fix: button label always on top of the chalk box ---- */
+  .btn-label{ position:relative; z-index:2; pointer-events:none; }
 
-    #run-btn {
-      background: #238636;
-      color: #fff;
-    }
+  /* ---------- CTA ---------- */
+  .cta{ text-align:center; padding:120px 0 130px; }
+  .cta h2{ font-family:var(--display); font-weight:700; font-size:clamp(58px,9vw,128px); line-height:.92; }
+  .cta h2 .u{ color:var(--yellow); }
+  .cta p{ font-family:var(--hand); font-size:24px; color:var(--chalk-dim); margin:14px 0 36px; }
+  .cta .btn{ font-size:30px; padding:20px 46px; }
 
-    #clear-btn {
-      background: #21262d;
-      color: #c9d1d9;
-      border: 1px solid #30363d;
-    }
+  footer{ position:relative; z-index:2; text-align:center; padding:30px 20px 46px; color:var(--chalk-faint);
+          font-family:var(--body); font-size:17px; border-top:1px dashed rgba(143,149,131,.35); margin:0 36px; }
+  footer .chalk-dot{ color:var(--pink); }
 
-    .hint {
-      font-size: 0.75rem;
-      color: #8b949e;
-      margin-left: auto;
-    }
+  /* ---------- reveal animations ---------- */
+  .reveal{ opacity:0; transform:translateY(20px); transition:opacity .7s ease, transform .7s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+  .write{ clip-path:inset(0 100% 0 0); }
+  .write.in{ clip-path:inset(0 0 0 0); transition:clip-path 1.1s cubic-bezier(.6,.1,.2,1); }
 
-    .example-btn {
-      background: #1f3a5f;
-      color: #58a6ff;
-      border: 1px solid #1f6feb;
-      font-size: 0.8rem;
-      padding: 6px 14px;
-    }
-  </style>
+  /* ---------- chalk dust particles ---------- */
+  .dust{ position:fixed; inset:0; pointer-events:none; z-index:55; overflow:hidden; }
+  .mote{ position:absolute; top:-12px; width:3px; height:3px; border-radius:50%;
+         background:rgba(238,240,226,.55); box-shadow:0 0 4px rgba(238,240,226,.4);
+         animation:fall linear infinite; }
+  @keyframes fall{ 0%{ transform:translateY(-12px) translateX(0); opacity:0; }
+                   10%{ opacity:.7; } 90%{ opacity:.5; }
+                   100%{ transform:translateY(105vh) translateX(40px); opacity:0; } }
+
+  @media (max-width:980px){
+    .flow{ flex-direction:column; gap:2px; }
+    .arrow{ transform:rotate(90deg); width:60px; height:40px; }
+    .node{ min-width:200px; }
+  }
+  @media (max-width:860px){
+    .nav-links{ display:none; }
+    .feature-grid{ grid-template-columns:repeat(2,1fr); }
+    .ide-layout{ grid-template-columns:1fr; }
+    .ide-divider{ height:1px; width:auto; margin:16px 0; }
+  }
+  @media (max-width:520px){
+    .feature-grid{ grid-template-columns:1fr; }
+    .wrap{ padding:0 24px; }
+    nav{ padding:22px 24px 0; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .reveal,.write{ opacity:1 !important; transform:none !important; clip-path:none !important; }
+    .mote{ display:none; }
+  }
+</style>
 </head>
 <body>
 
-  <header>
-    <h1>⚡ APL</h1>
-    <span>v1.0</span>
-    <span style="background:#1f3a5f; color:#58a6ff;">Ainzo Programming Language</span>
-  </header>
+<!-- hidden SVG filters: organic hand-drawn wobble -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.022" numOctaves="3" seed="7" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="rough-soft">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.016" numOctaves="2" seed="3" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </defs>
+</svg>
 
-  <div class="editor-area">
+<div class="board-light"></div>
+<div class="dust" id="dust"></div>
+<div class="frame"><div class="t"></div><div class="b"></div><div class="l"></div><div class="r"></div></div>
 
-    <div class="left-panel">
-      <div class="panel-header">
-        <div><span class="dot"></span>editor.apl</div>
-        <button class="example-btn" onclick="loadExample()">Load Example</button>
-      </div>
-      <textarea id="code-input" placeholder="Write your APL code here...
-Example:
-v int x = 5
-print x"></textarea>
+<!-- ============ NAV ============ -->
+<nav>
+  <div class="brand chalk">
+    <svg class="mark rough" viewBox="0 0 32 32" fill="none" stroke="#f2e2a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 24 L13 6 L19 22 M24 9 L27 26" />
+      <path d="M3 28 Q16 25 29 28" stroke="#eef0e2" stroke-width="2" />
+    </svg>
+    <span>APL</span>
+  </div>
+  <div class="nav-links">
+    <a href="#features" class="line">Features</a>
+    <a href="#how" class="line">How it works</a>
+    <a href="#playground" class="line">Try it</a>
+    <a href="https://github.com/ainzowork-gif/apl" target="_blank" class="line" title="View source on GitHub" style="display:flex;align-items:center;gap:6px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.742 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+      </svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero wrap">
+  <p class="kicker chalk reveal">Ainzo Programming Language</p>
+  <h1 class="chalk write">APL<span class="dot">.</span></h1>
+  <p class="tagline reveal">A tiny, hand-crafted language you can <b>learn on a blackboard</b> — write a line, see the answer.</p>
+  <div class="btn-row reveal">
+    <a href="#playground" class="btn primary"><span class="box"></span><span class="btn-label">Try Online</span></a>
+    <a href="#how" class="btn ghost"><span class="box"></span><span class="btn-label">How it Works</span></a>
+  </div>
+</section>
+
+<!-- ============ ANIMATED CODE DEMO ============ -->
+<section class="code-wrap wrap" id="demo">
+  <div class="code-board reveal">
+    <span class="panel"></span>
+    <span class="tag">~ apl demo</span>
+    <div class="code">
+      <div class="code-line"><span class="prompt">&gt;</span> <span id="line1"></span></div>
+      <div class="code-line"><span class="prompt">&gt;</span> <span id="line2"></span></div>
+      <div class="code-line"><span id="line3"></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="features wrap" id="features">
+  <div class="sec-head reveal">
+    <h2 class="chalk">Why APL</h2>
+    <svg class="underline-svg" viewBox="0 0 340 22"><path d="M6 14 Q90 4 170 12 T334 9" /></svg>
+  </div>
+  <p class="sec-sub reveal">four things that make it yours</p>
+  <div class="feature-grid">
+
+    <div class="feature reveal">
+      <span class="card"></span>
+      <svg class="ic" viewBox="0 0 48 48" stroke="#f2e2a0">
+        <path d="M14 10 h20 M14 18 h14 M14 26 h18 M14 34 h10" />
+        <path d="M36 26 L42 32 L36 38" />
+      </svg>
+      <h3 class="chalk">Variables</h3>
+      <p>Define int, double, bool and string — plain keywords, no boilerplate.</p>
     </div>
 
-    <div class="right-panel">
-      <div class="panel-header">
-        <div><span class="dot" style="background:#3fb950"></span>output</div>
-      </div>
-      <pre id="output"></pre>
-      <div class="toolbar">
-        <button id="run-btn">▶ Run</button>
-        <button id="clear-btn">✕ Clear</button>
-        <span class="hint">Ctrl+Enter to run</span>
-      </div>
+    <div class="feature reveal">
+      <span class="card"></span>
+      <svg class="ic" viewBox="0 0 48 48" stroke="#e8a9a2">
+        <circle cx="24" cy="24" r="14" />
+        <path d="M24 10 V24 L32 30" />
+        <path d="M17 6 Q24 2 31 6" />
+      </svg>
+      <h3 class="chalk">Loops</h3>
+      <p>Loop until a condition is false — written exactly like you'd say it aloud.</p>
+    </div>
+
+    <div class="feature reveal">
+      <span class="card"></span>
+      <svg class="ic" viewBox="0 0 48 48" stroke="#a8c8d8">
+        <path d="M10 14 h28 M10 14 v20 h28 v-20" />
+        <path d="M18 14 v-6 h12 v6" />
+        <path d="M19 28 l4 4 l8 -8" />
+      </svg>
+      <h3 class="chalk">Functions</h3>
+      <p>Define with <b>func</b>, call with <b>call</b> — reuse any block of code you write.</p>
+    </div>
+
+    <div class="feature reveal">
+      <span class="card"></span>
+      <svg class="ic" viewBox="0 0 48 48" stroke="#bcd6a8">
+        <path d="M8 36 h32 M24 36 V10" />
+        <path d="M16 20 L24 10 L32 20" />
+        <path d="M12 30 Q24 22 36 30" />
+      </svg>
+      <h3 class="chalk">User Input</h3>
+      <p>Read from the keyboard into any variable — one letter, <b>r x</b>, and you're done.</p>
     </div>
 
   </div>
+</section>
 
-  <script>
-    // Ctrl+Enter to run
-    document.getElementById('code-input').addEventListener('keydown', function(e) {
-      if (e.ctrlKey && e.key === 'Enter') {
-        document.getElementById('run-btn').click();
-      }
-    });
+<!-- ============ HOW IT WORKS ============ -->
+<section class="how wrap" id="how">
+  <div class="sec-head reveal">
+    <h2 class="chalk">How it works</h2>
+    <svg class="underline-svg" viewBox="0 0 340 22"><path d="M6 12 Q100 18 180 10 T334 13" /></svg>
+  </div>
+  <p class="sec-sub reveal">from a chalk line to an answer, in four steps</p>
+  <div class="flow reveal">
+    <div class="node code-node"><span class="box2"></span><div class="nh chalk">Code</div><div class="ns">v int x = 5</div></div>
+    <svg class="arrow" viewBox="0 0 78 46"><path d="M6 24 Q40 12 64 24 M64 24 L54 17 M64 24 L55 31" /></svg>
+    <div class="node"><span class="box2"></span><div class="nh chalk">Lexer</div><div class="ns">splits into tokens</div></div>
+    <svg class="arrow" viewBox="0 0 78 46"><path d="M6 22 Q40 34 64 22 M64 22 L54 16 M64 22 L55 29" /></svg>
+    <div class="node"><span class="box2"></span><div class="nh chalk">Interpreter</div><div class="ns">walks the tree</div></div>
+    <svg class="arrow" viewBox="0 0 78 46"><path d="M6 24 Q40 12 64 24 M64 24 L54 17 M64 24 L55 31" /></svg>
+    <div class="node out-node"><span class="box2"></span><div class="nh chalk">Output</div><div class="ns">5</div></div>
+  </div>
+</section>
 
-    function loadExample() {
-      document.getElementById('code-input').value =
-`v int x = 1
+<!-- ============ INTERACTIVE PLAYGROUND ============ -->
+<section class="playground wrap" id="playground">
+  <div class="sec-head reveal">
+    <h2 class="chalk">Try it</h2>
+    <svg class="underline-svg" viewBox="0 0 340 22"><path d="M6 16 Q85 6 170 14 T334 11" /></svg>
+  </div>
+  <p class="sec-sub reveal">write APL code and run it right here — no install needed</p>
+
+  <div class="ide-board reveal">
+    <span class="ide-panel"></span>
+    <span class="ide-tag">~ apl playground</span>
+
+    <div class="ide-layout">
+      <!-- LEFT: code editor -->
+      <div class="ide-col">
+        <div class="ide-col-label">code</div>
+        <textarea id="code-input" spellcheck="false" placeholder="v int x = 1
 Loop x < 6 {
 n v x = x + 1
 print x
-}`;
-    }
-  </script>
+}"></textarea>
+      </div>
 
+      <!-- DIVIDER -->
+      <div class="ide-divider"></div>
+
+      <!-- RIGHT: output -->
+      <div class="ide-col">
+        <div class="ide-col-label">output</div>
+        <pre id="output"></pre>
+      </div>
+    </div>
+
+    <div class="ide-toolbar">
+      <button id="run-btn" class="btn primary ide-btn"><span class="box"></span><span class="btn-label">▶ Run</span></button>
+      <button id="clear-btn" class="btn ghost ide-btn"><span class="box"></span><span class="btn-label">Clear</span></button>
+      <span class="ide-hint">Ctrl + Enter to run</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="cta wrap" id="start">
+  <h2 class="chalk write">Pick up the <span class="u">chalk</span>.</h2>
+  <p class="reveal">Open the playground above — no install, just start writing APL.</p>
+  <div class="reveal" style="display:flex; justify-content:center;">
+    <a href="#playground" class="btn primary"><span class="box"></span><span class="btn-label">Start Writing</span></a>
+  </div>
+</section>
+
+<footer>
+  APL — Ainzo Programming Language <span class="chalk-dot">•</span> built with chalk &amp; Dart
+</footer>
+
+<!-- ── interpreter (compiled from Dart) ── -->
+<script defer src="web_ide.js"></script>
+
+<script>
+  /* ---------- chalk dust motes ---------- */
+  (function(){
+    var dust = document.getElementById('dust');
+    if(!dust) return;
+    for(var i=0;i<16;i++){
+      var m = document.createElement('div');
+      m.className = 'mote';
+      m.style.left = Math.random()*100 + 'vw';
+      var dur = 9 + Math.random()*12;
+      m.style.animationDuration = dur + 's';
+      m.style.animationDelay = (-Math.random()*dur) + 's';
+      var s = 2 + Math.random()*2.5;
+      m.style.width = s+'px'; m.style.height = s+'px';
+      m.style.opacity = 0.3 + Math.random()*0.4;
+      dust.appendChild(m);
+    }
+  })();
+
+  /* ---------- reveal on scroll ---------- */
+  (function(){
+    var els = Array.prototype.slice.call(document.querySelectorAll('.reveal, .write, .sec-head'));
+    function show(el){ el.classList.add('in'); }
+    function inView(el){
+      var r = el.getBoundingClientRect();
+      return r.top < (window.innerHeight || 800) * 0.92 && r.bottom > 0;
+    }
+    function sweep(){ els.forEach(function(el){ if(!el.classList.contains('in') && inView(el)) show(el); }); }
+    sweep();
+    requestAnimationFrame(sweep);
+    if('IntersectionObserver' in window){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting){ show(e.target); io.unobserve(e.target); } });
+      }, { threshold:0.16 });
+      els.forEach(function(el){ if(!el.classList.contains('in')) io.observe(el); });
+    } else {
+      window.addEventListener('scroll', sweep, { passive:true });
+    }
+    setTimeout(function(){ els.forEach(show); }, 1600);
+  })();
+
+  /* ---------- Ctrl+Enter to run ---------- */
+  document.addEventListener('keydown', function(e){
+    if(e.ctrlKey && e.key === 'Enter'){
+      var btn = document.getElementById('run-btn');
+      if(btn) btn.click();
+    }
+  });
+
+  /* ---------- chalk typing animation (animated demo) ---------- */
+  (function(){
+    var line1 = document.getElementById('line1');
+    var line2 = document.getElementById('line2');
+    var line3 = document.getElementById('line3');
+    if(!line1) return;
+
+    function chalkSpan(ch){
+      var s = document.createElement('span');
+      s.className = 'ci';
+      s.textContent = (ch === ' ') ? ' ' : ch;
+      return s;
+    }
+
+    var cursor = document.createElement('span');
+    cursor.className = 'cursor blink';
+
+    /* APL demo: "v int x = 5"  →  "print x"  →  "5" */
+    var L1 = [
+      {t:'v',   c:'kw'},
+      {t:' ',   c:''},
+      {t:'int', c:'kw'},
+      {t:' x = ', c:'var'},
+      {t:'5',   c:'num'}
+    ];
+    var L2 = [
+      {t:'print', c:'kw'},
+      {t:' x',    c:'var'}
+    ];
+    var L3 = [{t:'5', c:'answer'}];
+
+    function typeTokens(target, tokens, cps, done){
+      cursor.classList.remove('blink');
+      target.appendChild(cursor);
+      var ti=0, ci=0, holder=null;
+      function step(){
+        if(ti>=tokens.length){ done && done(); return; }
+        var tok = tokens[ti];
+        if(ci===0){
+          holder = document.createElement('span');
+          if(tok.c) holder.className = tok.c;
+          target.insertBefore(holder, cursor);
+        }
+        holder.appendChild(chalkSpan(tok.t[ci]));
+        ci++;
+        if(ci>=tok.t.length){ ti++; ci=0; }
+        setTimeout(step, 1000/cps + Math.random()*40);
+      }
+      step();
+    }
+
+    function run(){
+      line1.innerHTML = ''; line2.innerHTML = ''; line3.innerHTML = '';
+      cursor.classList.remove('blink');
+      typeTokens(line1, L1, 10, function(){
+        setTimeout(function(){
+          typeTokens(line2, L2, 10, function(){
+            setTimeout(function(){
+              typeTokens(line3, L3, 7, function(){
+                cursor.classList.add('blink');
+                setTimeout(run, 2800);
+              });
+            }, 380);
+          });
+        }, 440);
+      });
+    }
+
+    var started = false;
+    function begin(){ if(!started){ started=true; run(); } }
+    var board = document.querySelector('.code-board');
+    if(board){
+      if('IntersectionObserver' in window){
+        var io = new IntersectionObserver(function(entries){
+          entries.forEach(function(e){ if(e.isIntersecting){ begin(); io.disconnect(); } });
+        }, { threshold:0.35 });
+        io.observe(board);
+      }
+      var r = board.getBoundingClientRect();
+      if(r.top < (window.innerHeight||800)) requestAnimationFrame(begin);
+    }
+    setTimeout(begin, 1400);
+  })();
+</script>
 </body>
 </html>
