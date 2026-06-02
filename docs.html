@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>APL Docs — Ainzo Programming Language</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gaegu:wght@300;400;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --board:#26382f;
+    --chalk:#eef0e2;
+    --chalk-dim:#bfc4b2;
+    --chalk-faint:#8d9583;
+    --yellow:#f2e2a0;
+    --pink:#e8a9a2;
+    --blue:#a8c8d8;
+    --green-chalk:#bcd6a8;
+    --display:"Caveat",cursive;
+    --hand:"Gaegu",cursive;
+    --body:"Patrick Hand",cursive;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+
+  body{
+    font-family:var(--body);
+    color:var(--chalk);
+    background-color:var(--board);
+    background-image:url("assets/chalkboard-grain.png");
+    background-size:512px 512px;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  /* board lighting */
+  .board-light{
+    position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:
+      radial-gradient(60% 45% at 22% 18%, rgba(255,255,255,.05), transparent 60%),
+      radial-gradient(55% 40% at 80% 72%, rgba(255,255,255,.045), transparent 60%),
+      radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.30) 100%);
+    mix-blend-mode:screen;
+  }
+  .board-light::after{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(120% 120% at 50% 45%, transparent 58%, rgba(0,0,0,.38) 100%);
+    mix-blend-mode:multiply;
+  }
+
+  /* wooden frame */
+  .frame{ position:fixed; inset:0; pointer-events:none; z-index:60; }
+  .frame > div{ position:absolute; box-shadow:inset 0 0 14px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.4); }
+  .frame .t{ top:0; left:0; right:0; height:16px; background:repeating-linear-gradient(0deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(#6a4527,#4d3019); }
+  .frame .b{ bottom:0; left:0; right:0; height:16px; background:repeating-linear-gradient(0deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(#6a4527,#4d3019); }
+  .frame .l{ top:0; bottom:0; left:0; width:16px; background:repeating-linear-gradient(90deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(90deg,#6a4527,#4d3019); }
+  .frame .r{ top:0; bottom:0; right:0; width:16px; background:repeating-linear-gradient(90deg,#5b3b22 0 6px,#6a4527 6px 11px,#553620 11px 15px),linear-gradient(90deg,#6a4527,#4d3019); }
+
+  /* chalk text */
+  .chalk{ text-shadow:0 0 1px rgba(238,240,226,.45), 0 0 2px rgba(238,240,226,.18); }
+
+  /* rough SVG filter */
+  .rough{ filter:url(#rough); }
+  .rough-soft{ filter:url(#rough-soft); }
+
+  /* dust motes */
+  .dust{ position:fixed; inset:0; pointer-events:none; z-index:55; overflow:hidden; }
+  .mote{ position:absolute; top:-12px; border-radius:50%;
+         background:rgba(238,240,226,.55); box-shadow:0 0 4px rgba(238,240,226,.4);
+         animation:fall linear infinite; }
+  @keyframes fall{
+    0%{ transform:translateY(-12px) translateX(0); opacity:0; }
+    10%{ opacity:.6; } 90%{ opacity:.4; }
+    100%{ transform:translateY(105vh) translateX(35px); opacity:0; }
+  }
+
+  /* ── layout ── */
+  .page{ display:flex; min-height:100vh; }
+
+  /* ── sidebar ── */
+  .sidebar{
+    position:fixed; top:0; left:0; bottom:0; width:230px;
+    z-index:10; padding:26px 0 40px 20px;
+    border-right:1px dashed rgba(191,196,178,.2);
+    display:flex; flex-direction:column; gap:6px;
+    overflow-y:auto;
+    background: linear-gradient(90deg, rgba(30,46,36,.85) 0%, transparent 100%);
+  }
+  .sidebar-brand{
+    font-family:var(--display); font-weight:700; font-size:26px;
+    color:var(--chalk); text-decoration:none; margin-bottom:10px;
+    display:flex; align-items:center; gap:7px;
+    text-shadow:0 0 1px rgba(238,240,226,.45);
+  }
+  .sidebar-brand svg{ width:20px; height:20px; }
+  .sidebar-brand .dot{ color:var(--pink); }
+  .sidebar-title{
+    font-family:var(--hand); font-size:13px; letter-spacing:2px;
+    color:var(--chalk-faint); text-transform:uppercase; margin:16px 0 6px;
+  }
+  .sidebar a{
+    font-family:var(--hand); font-size:18px; color:var(--chalk-dim);
+    text-decoration:none; padding:3px 10px 3px 8px;
+    border-radius:6px 4px 5px 4px;
+    transition:color .18s, background .18s;
+    position:relative;
+  }
+  .sidebar a:hover{ color:var(--yellow); }
+  .sidebar a.active{ color:var(--yellow); }
+  .sidebar a::before{
+    content:"›"; margin-right:6px; color:var(--chalk-faint); font-size:20px;
+  }
+  .sidebar-sep{
+    height:1px; background:rgba(191,196,178,.15); margin:10px 14px 6px 0;
+  }
+  .sidebar-try{
+    margin-top:auto; padding-right:14px;
+  }
+  .sidebar-try a{
+    display:block; text-align:center; font-family:var(--hand); font-size:17px;
+    color:var(--board); background:var(--yellow); padding:9px 16px;
+    border-radius:10px 7px 9px 8px; text-decoration:none;
+    filter:url(#rough); transition:opacity .2s;
+  }
+  .sidebar-try a:hover{ opacity:.88; }
+
+  /* ── main content ── */
+  .main{
+    position:relative; z-index:2;
+    margin-left:230px;
+    padding:46px 52px 100px 52px;
+    max-width:860px;
+  }
+
+  /* page header */
+  .page-header{ margin-bottom:60px; }
+  .page-header .page-label{
+    font-family:var(--hand); font-size:18px; color:var(--yellow);
+    letter-spacing:2px; text-transform:uppercase;
+  }
+  .page-header h1{
+    font-family:var(--display); font-weight:700;
+    font-size:clamp(64px, 10vw, 110px); line-height:.9;
+    margin:4px 0 10px;
+    text-shadow:0 0 1px rgba(238,240,226,.45), 0 0 2px rgba(238,240,226,.18);
+  }
+  .page-header h1 .dot{ color:var(--pink); }
+  .page-header p{
+    font-family:var(--hand); font-size:22px; color:var(--chalk-dim);
+    max-width:520px; margin-top:4px;
+  }
+
+  /* underline drawn */
+  .drawn-line{
+    display:block; width:220px; height:18px; margin:6px 0 0;
+  }
+  .drawn-line path{ stroke:var(--yellow); stroke-width:2.8; fill:none; stroke-linecap:round; }
+
+  /* ── doc section ── */
+  .doc-section{ margin-bottom:64px; scroll-margin-top:30px; }
+  .doc-section h2{
+    font-family:var(--display); font-weight:700; font-size:52px;
+    line-height:1; color:var(--chalk);
+    text-shadow:0 0 1px rgba(238,240,226,.45);
+    margin-bottom:6px;
+  }
+  .doc-section .section-sub{
+    font-family:var(--hand); font-size:19px; color:var(--chalk-faint);
+    margin-bottom:24px;
+  }
+
+  /* ── syntax card ── */
+  .card{
+    position:relative; padding:28px 28px 28px;
+    margin-bottom:24px;
+  }
+  .card-border{
+    position:absolute; inset:0; border:2px dashed rgba(191,196,178,.45);
+    border-radius:16px 10px 14px 11px; filter:url(#rough-soft); pointer-events:none;
+  }
+  .card.yellow-card .card-border{ border-color:rgba(242,226,160,.5); border-style:solid; }
+  .card.blue-card   .card-border{ border-color:rgba(168,200,216,.45); }
+  .card.green-card  .card-border{ border-color:rgba(188,214,168,.45); }
+  .card.pink-card   .card-border{ border-color:rgba(232,169,162,.45); }
+
+  .card-tag{
+    position:absolute; top:-13px; left:22px;
+    background:var(--board); padding:0 10px;
+    font-family:var(--hand); font-size:16px; color:var(--chalk-faint);
+    white-space:nowrap;
+  }
+
+  /* ── code block ── */
+  .code-block{
+    font-family:var(--hand); font-size:20px; line-height:1.85;
+    position:relative; margin:0;
+  }
+  .kw  { color:var(--yellow); }
+  .num { color:var(--pink); }
+  .str { color:var(--green-chalk); }
+  .cmt { color:var(--chalk-faint); font-style:italic; }
+  .op  { color:var(--blue); }
+  .ans { color:var(--green-chalk); font-weight:700; }
+  .var { color:var(--chalk-dim); }
+
+  /* ── inline code ── */
+  code{
+    font-family:var(--hand); font-size:.95em;
+    background:rgba(238,240,226,.08); border:1px solid rgba(238,240,226,.15);
+    border-radius:5px; padding:1px 7px; color:var(--yellow);
+  }
+
+  /* ── description row ── */
+  .desc{
+    font-family:var(--body); font-size:19px; color:var(--chalk-dim);
+    margin-bottom:18px; line-height:1.6;
+  }
+  .desc b{ color:var(--chalk); }
+
+  /* ── syntax table ── */
+  .syn-table{ width:100%; border-collapse:separate; border-spacing:0 8px; margin-top:8px; }
+  .syn-table th{
+    font-family:var(--hand); font-size:15px; color:var(--chalk-faint);
+    text-align:left; letter-spacing:1.5px; text-transform:uppercase;
+    padding:4px 14px 8px;
+    border-bottom:1px dashed rgba(191,196,178,.25);
+  }
+  .syn-table td{
+    font-family:var(--hand); font-size:19px; padding:6px 14px;
+    vertical-align:top;
+  }
+  .syn-table td:first-child{ color:var(--yellow); }
+  .syn-table td:last-child{ color:var(--chalk-dim); font-size:17px; }
+  .syn-table tr td:first-child{ border-radius:6px 0 0 6px; }
+  .syn-table tr td:last-child{ border-radius:0 6px 6px 0; }
+  .syn-table tr:hover td{ background:rgba(238,240,226,.04); }
+
+  /* ── reveal ── */
+  .reveal{ opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  /* ── quick ref pill row ── */
+  .pill-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; }
+  .pill{
+    font-family:var(--hand); font-size:18px;
+    padding:5px 16px; border-radius:20px;
+    border:1.5px solid rgba(191,196,178,.35);
+    color:var(--chalk-dim); transition:border-color .2s, color .2s;
+  }
+  .pill:hover{ border-color:var(--yellow); color:var(--yellow); }
+  .pill.kw-pill{ color:var(--yellow); border-color:rgba(242,226,160,.4); }
+  .pill.op-pill{ color:var(--blue);   border-color:rgba(168,200,216,.4); }
+  .pill.ans-pill{ color:var(--green-chalk); border-color:rgba(188,214,168,.4); }
+
+  /* ── divider ── */
+  .chalk-div{ height:1px; background:rgba(191,196,178,.15); margin:48px 0; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar{ width:4px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:rgba(191,196,178,.25); border-radius:2px; }
+
+  @media (max-width:860px){
+    .sidebar{ display:none; }
+    .main{ margin-left:0; padding:32px 24px 80px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .reveal{ opacity:1 !important; transform:none !important; }
+    .mote{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.022" numOctaves="3" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="rough-soft">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.016" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="board-light"></div>
+<div class="dust" id="dust"></div>
+<div class="frame"><div class="t"></div><div class="b"></div><div class="l"></div><div class="r"></div></div>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<nav class="sidebar">
+  <a href="index.html" class="sidebar-brand chalk">
+    <svg viewBox="0 0 32 32" fill="none" stroke="#f2e2a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 24 L13 6 L19 22 M24 9 L27 26"/>
+      <path d="M3 28 Q16 25 29 28" stroke="#eef0e2" stroke-width="2"/>
+    </svg>
+    APL<span class="dot">.</span>
+  </a>
+
+  <div class="sidebar-title">Language</div>
+  <a href="#variables">Variables</a>
+  <a href="#print">Print</a>
+  <a href="#reassign">Reassign</a>
+  <a href="#input">User Input</a>
+
+  <div class="sidebar-sep"></div>
+  <div class="sidebar-title">Control Flow</div>
+  <a href="#if">If / Else</a>
+  <a href="#loop">Loop</a>
+
+  <div class="sidebar-sep"></div>
+  <div class="sidebar-title">Functions</div>
+  <a href="#functions">func / call</a>
+
+  <div class="sidebar-sep"></div>
+  <div class="sidebar-title">Reference</div>
+  <a href="#operators">Operators</a>
+  <a href="#types">Types</a>
+  <a href="#cheatsheet">Cheat Sheet</a>
+
+  <div class="sidebar-try">
+    <a href="play.html">▶ Try it Live</a>
+  </div>
+</nav>
+
+<!-- ══════════ MAIN ══════════ -->
+<main class="main">
+
+  <!-- page header -->
+  <div class="page-header reveal">
+    <div class="page-label">Reference</div>
+    <h1 class="chalk">Docs<span class="dot">.</span></h1>
+    <svg class="drawn-line" viewBox="0 0 220 18">
+      <path d="M4 12 Q55 4 110 10 T216 8"/>
+    </svg>
+    <p style="margin-top:14px;">Everything APL — one board, all the chalk you need.</p>
+  </div>
+
+  <!-- ══ VARIABLES ══ -->
+  <div class="doc-section reveal" id="variables">
+    <h2 class="chalk">Variables</h2>
+    <p class="section-sub">define a new variable with <code>v</code></p>
+
+    <p class="desc">
+      Use <b>v</b> to declare a variable. You must give it a <b>type</b>, a <b>name</b>, and a <b>value</b>.
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">v</span> <span class="op">type</span> <span class="var">name</span> <span class="op">=</span> <span class="num">value</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">examples</div>
+      <pre class="code-block"><span class="kw">v</span> <span class="op">int</span>    <span class="var">age</span>    <span class="op">=</span> <span class="num">20</span>          <span class="cmt">~ whole number</span>
+<span class="kw">v</span> <span class="op">double</span> <span class="var">price</span>  <span class="op">=</span> <span class="num">9.99</span>        <span class="cmt">~ decimal number</span>
+<span class="kw">v</span> <span class="op">bool</span>   <span class="var">done</span>   <span class="op">=</span> <span class="num">false</span>       <span class="cmt">~ true or false</span>
+<span class="kw">v</span> <span class="op">string</span> <span class="var">name</span>   <span class="op">=</span> <span class="str">Ahmed</span>       <span class="cmt">~ text</span></pre>
+    </div>
+
+    <table class="syn-table">
+      <tr><th>Type</th><th>What it stores</th></tr>
+      <tr><td>int</td><td>Whole numbers — 0, 5, -3, 100</td></tr>
+      <tr><td>double</td><td>Decimal numbers — 3.14, 0.5, -1.8</td></tr>
+      <tr><td>bool</td><td>true or false only</td></tr>
+      <tr><td>string</td><td>Any text — name, word, sentence</td></tr>
+    </table>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ PRINT ══ -->
+  <div class="doc-section reveal" id="print">
+    <h2 class="chalk">Print</h2>
+    <p class="section-sub">write to the screen with <code>print</code></p>
+
+    <p class="desc">
+      <b>print</b> shows a value, a variable, a quoted string, or the result of a math expression.
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">print</span> <span class="var">value_or_expression</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">examples</div>
+      <pre class="code-block"><span class="kw">print</span> <span class="num">42</span>                    <span class="cmt">~ prints: 42</span>
+<span class="kw">print</span> <span class="var">age</span>                   <span class="cmt">~ prints the value of age</span>
+<span class="kw">print</span> <span class="str">"Hello World"</span>         <span class="cmt">~ prints: Hello World</span>
+<span class="kw">print</span> <span class="num">5</span> <span class="op">+</span> <span class="num">3</span>                <span class="cmt">~ prints: 8</span>
+<span class="kw">print</span> <span class="var">age</span> <span class="op">+</span> <span class="num">1</span>              <span class="cmt">~ prints age + 1</span></pre>
+    </div>
+
+    <div class="card green-card">
+      <div class="card-border"></div>
+      <div class="card-tag">output</div>
+      <pre class="code-block"><span class="ans">42
+20
+Hello World
+8
+21</span></pre>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ REASSIGN ══ -->
+  <div class="doc-section reveal" id="reassign">
+    <h2 class="chalk">Reassign</h2>
+    <p class="section-sub">change a variable's value with <code>n v</code></p>
+
+    <p class="desc">
+      Once a variable is declared, use <b>n v</b> to give it a new value.
+      You can use its current value in the expression on the right.
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">n v</span> <span class="var">name</span> <span class="op">=</span> <span class="var">expression</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">examples</div>
+      <pre class="code-block"><span class="kw">v</span> <span class="op">int</span> <span class="var">x</span> <span class="op">=</span> <span class="num">10</span>
+<span class="kw">n v</span> <span class="var">x</span> <span class="op">=</span> <span class="var">x</span> <span class="op">+</span> <span class="num">5</span>    <span class="cmt">~ x is now 15</span>
+<span class="kw">n v</span> <span class="var">x</span> <span class="op">=</span> <span class="var">x</span> <span class="op">*</span> <span class="num">2</span>    <span class="cmt">~ x is now 30</span>
+<span class="kw">n v</span> <span class="var">x</span> <span class="op">=</span> <span class="num">0</span>         <span class="cmt">~ x is now 0</span>
+<span class="kw">print</span> <span class="var">x</span>            <span class="ans">0</span></pre>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ INPUT ══ -->
+  <div class="doc-section reveal" id="input">
+    <h2 class="chalk">User Input</h2>
+    <p class="section-sub">read from the keyboard with <code>r</code></p>
+
+    <p class="desc">
+      <b>r</b> pauses the program and waits for the user to type something.
+      The variable must be <b>declared first</b> — APL uses its type to convert the input correctly.
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">r</span> <span class="var">name</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">example</div>
+      <pre class="code-block"><span class="kw">v</span> <span class="op">int</span> <span class="var">age</span> <span class="op">=</span> <span class="num">0</span>      <span class="cmt">~ declare first</span>
+<span class="kw">r</span> <span class="var">age</span>              <span class="cmt">~ prompt appears: user types 25</span>
+<span class="kw">print</span> <span class="var">age</span>          <span class="ans">25</span></pre>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ IF / ELSE ══ -->
+  <div class="doc-section reveal" id="if">
+    <h2 class="chalk">If / Else</h2>
+    <p class="section-sub">run code only when a condition is true</p>
+
+    <p class="desc">
+      Wrap code in <code>{ }</code> — APL runs it only if the condition is true.
+      Add <code>else { }</code> to handle the false case.
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">if</span> <span class="var">name</span> <span class="op">condition</span> <span class="num">value</span> <span class="op">{</span>
+  <span class="cmt">~ runs when true</span>
+<span class="op">}</span>
+<span class="kw">else</span> <span class="op">{</span>
+  <span class="cmt">~ runs when false</span>
+<span class="op">}</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">example</div>
+      <pre class="code-block"><span class="kw">v</span> <span class="op">int</span> <span class="var">score</span> <span class="op">=</span> <span class="num">85</span>
+<span class="kw">if</span> <span class="var">score</span> <span class="op">&gt;</span> <span class="num">60</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="str">"Pass"</span>
+<span class="op">}</span>
+<span class="kw">else</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="str">"Fail"</span>
+<span class="op">}</span></pre>
+    </div>
+
+    <div class="card green-card">
+      <div class="card-border"></div>
+      <div class="card-tag">output</div>
+      <pre class="code-block"><span class="ans">Pass</span></pre>
+    </div>
+
+    <p class="desc" style="margin-top:20px;">
+      Supported comparison operators inside <code>if</code>:
+    </p>
+    <div class="pill-row">
+      <span class="pill op-pill">&gt;  greater than</span>
+      <span class="pill op-pill">&lt;  less than</span>
+      <span class="pill op-pill">A=  equals</span>
+      <span class="pill op-pill">!=  not equal</span>
+      <span class="pill op-pill">&gt;=  greater or equal</span>
+      <span class="pill op-pill">&lt;=  less or equal</span>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ LOOP ══ -->
+  <div class="doc-section reveal" id="loop">
+    <h2 class="chalk">Loop</h2>
+    <p class="section-sub">repeat code while a condition is true with <code>Loop</code></p>
+
+    <p class="desc">
+      <b>Loop</b> keeps running the block inside <code>{ }</code> as long as the condition holds.
+      Don't forget to change the variable inside — otherwise it loops forever!
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">Loop</span> <span class="var">name</span> <span class="op">condition</span> <span class="num">value</span> <span class="op">{</span>
+  <span class="cmt">~ repeats while true</span>
+<span class="op">}</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">example — count 1 to 5</div>
+      <pre class="code-block"><span class="kw">v</span> <span class="op">int</span> <span class="var">x</span> <span class="op">=</span> <span class="num">1</span>
+<span class="kw">Loop</span> <span class="var">x</span> <span class="op">&lt;</span> <span class="num">6</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="var">x</span>
+  <span class="kw">n v</span> <span class="var">x</span> <span class="op">=</span> <span class="var">x</span> <span class="op">+</span> <span class="num">1</span>
+<span class="op">}</span></pre>
+    </div>
+
+    <div class="card green-card">
+      <div class="card-border"></div>
+      <div class="card-tag">output</div>
+      <pre class="code-block"><span class="ans">1
+2
+3
+4
+5</span></pre>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ FUNCTIONS ══ -->
+  <div class="doc-section reveal" id="functions">
+    <h2 class="chalk">Functions</h2>
+    <p class="section-sub">define once, call anywhere with <code>func</code> and <code>call</code></p>
+
+    <p class="desc">
+      A <b>func</b> bundles lines of code under a name so you can reuse them.
+      Use <b>call</b> to run it whenever you need it.
+    </p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <div class="card-tag">syntax</div>
+      <pre class="code-block"><span class="kw">func</span> <span class="var">name</span> <span class="op">{</span>
+  <span class="cmt">~ your code here</span>
+<span class="op">}</span>
+
+<span class="kw">call</span> <span class="var">name</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-border"></div>
+      <div class="card-tag">example</div>
+      <pre class="code-block"><span class="kw">func</span> <span class="var">greet</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="str">"Hello from APL!"</span>
+  <span class="kw">print</span> <span class="str">"Welcome."</span>
+<span class="op">}</span>
+
+<span class="kw">call</span> <span class="var">greet</span>
+<span class="kw">call</span> <span class="var">greet</span>   <span class="cmt">~ call it as many times as you want</span></pre>
+    </div>
+
+    <div class="card green-card">
+      <div class="card-border"></div>
+      <div class="card-tag">output</div>
+      <pre class="code-block"><span class="ans">Hello from APL!
+Welcome.
+Hello from APL!
+Welcome.</span></pre>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ OPERATORS ══ -->
+  <div class="doc-section reveal" id="operators">
+    <h2 class="chalk">Operators</h2>
+    <p class="section-sub">math and comparison symbols APL understands</p>
+
+    <div class="card blue-card" style="margin-bottom:20px;">
+      <div class="card-border"></div>
+      <div class="card-tag">math</div>
+      <table class="syn-table">
+        <tr><th>Symbol</th><th>Operation</th></tr>
+        <tr><td>+</td><td>addition</td></tr>
+        <tr><td>-</td><td>subtraction</td></tr>
+        <tr><td>*</td><td>multiplication</td></tr>
+        <tr><td>/</td><td>integer division (no decimals)</td></tr>
+      </table>
+    </div>
+
+    <div class="card blue-card">
+      <div class="card-border"></div>
+      <div class="card-tag">comparison — used in if and Loop</div>
+      <table class="syn-table">
+        <tr><th>Symbol</th><th>Meaning</th></tr>
+        <tr><td>&gt;</td><td>greater than</td></tr>
+        <tr><td>&lt;</td><td>less than</td></tr>
+        <tr><td>A=</td><td>equal to</td></tr>
+        <tr><td>!=</td><td>not equal to</td></tr>
+        <tr><td>&gt;=</td><td>greater than or equal</td></tr>
+        <tr><td>&lt;=</td><td>less than or equal</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ TYPES ══ -->
+  <div class="doc-section reveal" id="types">
+    <h2 class="chalk">Types</h2>
+    <p class="section-sub">the four data types APL supports</p>
+    <div class="card">
+      <div class="card-border"></div>
+      <table class="syn-table">
+        <tr><th>Type</th><th>Example value</th><th>What it means</th></tr>
+        <tr><td>int</td><td>5, -3, 100</td><td>Whole integer number</td></tr>
+        <tr><td>double</td><td>3.14, 0.5</td><td>Number with decimal point</td></tr>
+        <tr><td>bool</td><td>true, false</td><td>Boolean — yes or no</td></tr>
+        <tr><td>string</td><td>Ahmed, Hello</td><td>Plain text (no quotes needed)</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="chalk-div"></div>
+
+  <!-- ══ CHEAT SHEET ══ -->
+  <div class="doc-section reveal" id="cheatsheet">
+    <h2 class="chalk">Cheat Sheet</h2>
+    <p class="section-sub">the whole language on one board</p>
+
+    <div class="card yellow-card">
+      <div class="card-border"></div>
+      <pre class="code-block"><span class="cmt">~ ─── Variables ───────────────────</span>
+<span class="kw">v</span> <span class="op">int</span>    <span class="var">x</span>     <span class="op">=</span> <span class="num">5</span>
+<span class="kw">v</span> <span class="op">double</span> <span class="var">pi</span>    <span class="op">=</span> <span class="num">3.14</span>
+<span class="kw">v</span> <span class="op">bool</span>   <span class="var">done</span>  <span class="op">=</span> <span class="num">false</span>
+<span class="kw">v</span> <span class="op">string</span> <span class="var">name</span>  <span class="op">=</span> <span class="str">Ahmed</span>
+
+<span class="cmt">~ ─── Print ───────────────────────</span>
+<span class="kw">print</span> <span class="var">x</span>
+<span class="kw">print</span> <span class="str">"Hello World"</span>
+<span class="kw">print</span> <span class="num">5</span> <span class="op">+</span> <span class="var">x</span>
+
+<span class="cmt">~ ─── Reassign ────────────────────</span>
+<span class="kw">n v</span> <span class="var">x</span> <span class="op">=</span> <span class="var">x</span> <span class="op">+</span> <span class="num">1</span>
+
+<span class="cmt">~ ─── Input ───────────────────────</span>
+<span class="kw">r</span> <span class="var">x</span>
+
+<span class="cmt">~ ─── If / Else ───────────────────</span>
+<span class="kw">if</span> <span class="var">x</span> <span class="op">&gt;</span> <span class="num">10</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="str">"big"</span>
+<span class="op">}</span>
+<span class="kw">else</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="str">"small"</span>
+<span class="op">}</span>
+
+<span class="cmt">~ ─── Loop ────────────────────────</span>
+<span class="kw">Loop</span> <span class="var">x</span> <span class="op">&lt;</span> <span class="num">10</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="var">x</span>
+  <span class="kw">n v</span> <span class="var">x</span> <span class="op">=</span> <span class="var">x</span> <span class="op">+</span> <span class="num">1</span>
+<span class="op">}</span>
+
+<span class="cmt">~ ─── Functions ───────────────────</span>
+<span class="kw">func</span> <span class="var">greet</span> <span class="op">{</span>
+  <span class="kw">print</span> <span class="str">"Hello!"</span>
+<span class="op">}</span>
+<span class="kw">call</span> <span class="var">greet</span></pre>
+    </div>
+
+    <div style="margin-top:32px; text-align:center;">
+      <a href="play.html" style="
+        display:inline-flex; align-items:center; gap:10px;
+        font-family:var(--hand); font-size:22px; color:var(--board);
+        background:var(--yellow); padding:14px 36px;
+        border-radius:12px 8px 11px 9px; text-decoration:none;
+        filter:url(#rough); transition:opacity .2s;
+      ">▶ Run it yourself</a>
+    </div>
+  </div>
+
+</main><!-- /main -->
+
+<script>
+  /* ── chalk dust ── */
+  (function(){
+    var dust = document.getElementById('dust');
+    for(var i=0;i<10;i++){
+      var m=document.createElement('div'); m.className='mote';
+      m.style.left=Math.random()*100+'vw';
+      var d=10+Math.random()*14;
+      m.style.animationDuration=d+'s';
+      m.style.animationDelay=(-Math.random()*d)+'s';
+      var s=2+Math.random()*2;
+      m.style.width=s+'px'; m.style.height=s+'px';
+      m.style.opacity=0.2+Math.random()*0.3;
+      dust.appendChild(m);
+    }
+  })();
+
+  /* ── reveal on scroll ── */
+  (function(){
+    var els=Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+    function show(el){ el.classList.add('in'); }
+    function inView(el){ var r=el.getBoundingClientRect(); return r.top<(window.innerHeight||800)*.93&&r.bottom>0; }
+    function sweep(){ els.forEach(function(el){ if(!el.classList.contains('in')&&inView(el)) show(el); }); }
+    sweep(); requestAnimationFrame(sweep);
+    if('IntersectionObserver' in window){
+      var io=new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting){ show(e.target); io.unobserve(e.target); } });
+      },{threshold:0.1});
+      els.forEach(function(el){ if(!el.classList.contains('in')) io.observe(el); });
+    } else { window.addEventListener('scroll',sweep,{passive:true}); }
+    setTimeout(function(){ els.forEach(show); },1500);
+  })();
+
+  /* ── active sidebar link on scroll ── */
+  (function(){
+    var links=Array.prototype.slice.call(document.querySelectorAll('.sidebar a[href^="#"]'));
+    var sections=links.map(function(l){ return document.querySelector(l.getAttribute('href')); }).filter(Boolean);
+    function update(){
+      var scrollY=window.scrollY+120;
+      var active=sections[0];
+      sections.forEach(function(s){ if(s&&s.offsetTop<=scrollY) active=s; });
+      links.forEach(function(l){ l.classList.toggle('active', l.getAttribute('href')==='#'+active.id); });
+    }
+    window.addEventListener('scroll',update,{passive:true}); update();
+  })();
+</script>
+</body>
+</html>
